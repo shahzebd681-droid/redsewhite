@@ -58,14 +58,42 @@ const defaults = {
 };
 for (const [k, v] of Object.entries(defaults))
   db.prepare("INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)").run(k, v);
-if (!db.prepare("SELECT id FROM admins LIMIT 1").get()) {
-  const u = process.env.ADMIN_USER || "admin";
-  const p = process.env.ADMIN_PASSWORD || "CHANGE-ME-IMMEDIATELY";
-  db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run(
-    u,
-    bcrypt.hashSync(p, 12)
+const adminUsername =
+  process.env.ADMIN_USER || 'admin';
+
+const adminPassword =
+  process.env.ADMIN_PASSWORD || 'CHANGE-ME-IMMEDIATELY';
+
+const existingAdmin =
+  db.prepare('SELECT id FROM admins LIMIT 1').get();
+
+if (!existingAdmin) {
+  db.prepare(
+    'INSERT INTO admins(username,password_hash) VALUES(?,?)'
+  ).run(
+    adminUsername,
+    bcrypt.hashSync(adminPassword, 12)
   );
-  console.log("Admin created:", u);
+
+  console.log(
+    `Admin created: ${adminUsername}`
+  );
+} else {
+  db.prepare(`
+    UPDATE admins
+    SET username = ?,
+        password_hash = ?
+    WHERE id = ?
+  `).run(
+    adminUsername,
+    bcrypt.hashSync(adminPassword, 12),
+    existingAdmin.id
+  );
+
+  console.log(
+    `Admin credentials synchronized: ${adminUsername}`
+  );
+}
 }
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
