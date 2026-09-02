@@ -1,6 +1,716 @@
-let cfg={};const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));const money=v=>Number(v||0).toLocaleString('en-IN');const labels={upi:'UPI Payment',qr_a:'QR Payment A',qr_b:'QR Payment B',qr_c:'QR Payment C',bank:'Bank Transfer'};
-function render(){const m=[['upi','UPI ID',cfg.upi_id,'Account Holder',cfg.upi_holder],['qr_a','QR Payment A','QR','Account Holder',cfg.qr_a_holder],['qr_b','QR Payment B','QR','Account Holder',cfg.qr_b_holder],['qr_c','QR Payment C','QR','Account Holder',cfg.qr_c_holder],['bank','Bank Transfer',cfg.bank_name,'Account Holder',cfg.bank_holder]];$('methods').innerHTML=m.map(x=>`<div class="method"><h3>${x[0]==='upi'?'💳':x[0]==='bank'?'🏦':'▣'} ${x[1]}</h3><p>${x[2]==='QR'?'Scan the QR code below.':esc(x[2]||'Not configured')}</p><p><b>${esc(x[3])}:</b> ${esc(x[4]||'Not configured')}</p>${x[0]==='bank'?`<p><b>Account:</b> ${esc(cfg.bank_account||'Not configured')}<br><b>IFSC:</b> ${esc(cfg.bank_ifsc||'Not configured')}</p>`:''}${x[0].startsWith('qr_')&&cfg[x[0]]?`<img class="qr" src="${esc(cfg[x[0])}" alt="${esc(x[1])}">`:''}<p class="limits">₹${money(cfg[x[0]+'_min'])} — ₹${money(cfg[x[0]+'_max'])}</p><p>${esc(cfg[x[0]+'_message']||'')}</p><button type="button" onclick="selectMethod('${x[0]}')">Use ${x[1]}</button></div>`).join('');$('payment_method').innerHTML=Object.keys(labels).map(k=>`<option value="${k}">${labels[k]}</option>`).join('');selectMethod('upi');$('contacts').innerHTML=`${cfg.whatsapp?`<a class="btn" href="${esc(cfg.whatsapp)}" target="_blank">WhatsApp</a>`:''} ${cfg.telegram?`<a class="btn" href="${esc(cfg.telegram)}" target="_blank">Telegram</a>`:''}`||'Support contacts are not configured yet.'}
-function selectMethod(m){$('payment_method').value=m;const min=Number(cfg[m+'_min']||1),max=Number(cfg[m+'_max']||100000000);$('amount').min=min;$('amount').max=max;$('amount').placeholder=`₹${money(min)} - ₹${money(max)}`}
-$('paymentForm').onsubmit=async e=>{e.preventDefault();$('result').innerHTML='';try{const r=await fetch('/api/payment',{method:'POST',body:new FormData(e.target)}),j=await r.json();if(!r.ok)throw Error(j.error);$('result').innerHTML=`<div class="success">Submitted successfully.<br><b>Reference Code: ${esc(j.code)}</b><br>Submitted: ${esc(j.submitted_at_ist)} IST<br>Save your reference code to check status.</div>`;e.target.reset();selectMethod('upi')}catch(e){$('result').innerHTML=`<div class="error">${esc(e.message)}</div>`}};
-async function checkStatus(){const c=$('codeSearch').value.trim().toUpperCase();if(!c)return;$('statusResult').innerHTML='Checking…';try{const r=await fetch('/api/status/'+encodeURIComponent(c)),j=await r.json();if(!r.ok)throw Error(j.error);$('statusResult').innerHTML=`<div class="status"><h3>${esc(j.code)}</h3><span class="pill ${esc(j.status)}">${esc(j.status)}</span><p><b>Payment Method:</b> ${esc(labels[j.payment_method]||j.payment_method)}<br><b>Amount:</b> ₹${money(j.amount)}<br><b>Submitted:</b> ${esc(j.created_at_ist)} IST<br><b>Last Updated:</b> ${esc(j.updated_at_ist)} IST</p>${j.status==='rejected'&&j.rejection_reason?`<p><b>Reason:</b> ${esc(j.rejection_reason)}</p>`:''}</div>`}catch(e){$('statusResult').innerHTML=`<div class="error">${esc(e.message)}</div>`}}
-fetch('/api/public').then(r=>r.json()).then(j=>{cfg=j.settings||{};render()});
+let cfg = {};
+
+const $ = (id) => document.getElementById(id);
+
+const esc = (value) =>
+  String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[char]));
+
+const money = (value) =>
+  Number(value || 0).toLocaleString('en-IN');
+
+const methods = {
+  upi: {
+    title: 'UPI Payment',
+    icon: '💳'
+  },
+
+  qr_a: {
+    title: 'QR Payment A',
+    icon: '▣'
+  },
+
+  qr_b: {
+    title: 'QR Payment B',
+    icon: '▣'
+  },
+
+  qr_c: {
+    title: 'QR Payment C',
+    icon: '▣'
+  },
+
+  bank: {
+    title: 'Bank Transfer',
+    icon: '🏦'
+  }
+};
+
+function renderPaymentMethods() {
+  const container = $('methods');
+
+  if (!container) return;
+
+  let html = '';
+
+  /* =========================
+     UPI
+  ========================= */
+
+  html += `
+    <div class="method">
+      <h3>💳 UPI Payment</h3>
+
+      <p>
+        <b>UPI ID:</b>
+        ${esc(cfg.upi_id || 'Not configured')}
+      </p>
+
+      <p>
+        <b>Account Holder:</b>
+        ${esc(cfg.upi_holder || 'Not configured')}
+      </p>
+
+      <p class="limits">
+        Minimum: ₹${money(cfg.upi_min)}
+        <br>
+        Maximum: ₹${money(cfg.upi_max)}
+      </p>
+
+      <p>
+        ${esc(cfg.upi_message || '')}
+      </p>
+
+      <button
+        type="button"
+        onclick="selectMethod('upi')"
+      >
+        Use UPI Payment
+      </button>
+    </div>
+  `;
+
+
+  /* =========================
+     QR A
+  ========================= */
+
+  html += `
+    <div class="method">
+      <h3>▣ QR Payment A</h3>
+
+      ${
+        cfg.qr_a
+          ? `
+            <img
+              class="qr"
+              src="${esc(cfg.qr_a)}"
+              alt="QR Payment A"
+            >
+          `
+          : `
+            <p>QR Code A is not configured.</p>
+          `
+      }
+
+      <p>
+        <b>Account Holder:</b>
+        ${esc(cfg.qr_a_holder || 'Not configured')}
+      </p>
+
+      <p class="limits">
+        Minimum: ₹${money(cfg.qr_a_min)}
+        <br>
+        Maximum: ₹${money(cfg.qr_a_max)}
+      </p>
+
+      <p>
+        ${esc(cfg.qr_a_message || '')}
+      </p>
+
+      <button
+        type="button"
+        onclick="selectMethod('qr_a')"
+      >
+        Use QR Payment A
+      </button>
+    </div>
+  `;
+
+
+  /* =========================
+     QR B
+  ========================= */
+
+  html += `
+    <div class="method">
+      <h3>▣ QR Payment B</h3>
+
+      ${
+        cfg.qr_b
+          ? `
+            <img
+              class="qr"
+              src="${esc(cfg.qr_b)}"
+              alt="QR Payment B"
+            >
+          `
+          : `
+            <p>QR Code B is not configured.</p>
+          `
+      }
+
+      <p>
+        <b>Account Holder:</b>
+        ${esc(cfg.qr_b_holder || 'Not configured')}
+      </p>
+
+      <p class="limits">
+        Minimum: ₹${money(cfg.qr_b_min)}
+        <br>
+        Maximum: ₹${money(cfg.qr_b_max)}
+      </p>
+
+      <p>
+        ${esc(cfg.qr_b_message || '')}
+      </p>
+
+      <button
+        type="button"
+        onclick="selectMethod('qr_b')"
+      >
+        Use QR Payment B
+      </button>
+    </div>
+  `;
+
+
+  /* =========================
+     QR C
+  ========================= */
+
+  html += `
+    <div class="method">
+      <h3>▣ QR Payment C</h3>
+
+      ${
+        cfg.qr_c
+          ? `
+            <img
+              class="qr"
+              src="${esc(cfg.qr_c)}"
+              alt="QR Payment C"
+            >
+          `
+          : `
+            <p>QR Code C is not configured.</p>
+          `
+      }
+
+      <p>
+        <b>Account Holder:</b>
+        ${esc(cfg.qr_c_holder || 'Not configured')}
+      </p>
+
+      <p class="limits">
+        Minimum: ₹${money(cfg.qr_c_min)}
+        <br>
+        Maximum: ₹${money(cfg.qr_c_max)}
+      </p>
+
+      <p>
+        ${esc(cfg.qr_c_message || '')}
+      </p>
+
+      <button
+        type="button"
+        onclick="selectMethod('qr_c')"
+      >
+        Use QR Payment C
+      </button>
+    </div>
+  `;
+
+
+  /* =========================
+     BANK
+  ========================= */
+
+  html += `
+    <div class="method">
+      <h3>🏦 Bank Transfer</h3>
+
+      <p>
+        <b>Bank Holder:</b>
+        ${esc(cfg.bank_holder || 'Not configured')}
+      </p>
+
+      <p>
+        <b>Bank Name:</b>
+        ${esc(cfg.bank_name || 'Not configured')}
+      </p>
+
+      <p>
+        <b>Account Number:</b>
+        ${esc(cfg.bank_account || 'Not configured')}
+      </p>
+
+      <p>
+        <b>IFSC:</b>
+        ${esc(cfg.bank_ifsc || 'Not configured')}
+      </p>
+
+      <p class="limits">
+        Minimum: ₹${money(cfg.bank_min)}
+        <br>
+        Maximum: ₹${money(cfg.bank_max)}
+      </p>
+
+      <p>
+        ${esc(cfg.bank_message || '')}
+      </p>
+
+      <button
+        type="button"
+        onclick="selectMethod('bank')"
+      >
+        Use Bank Transfer
+      </button>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+
+/* =========================
+   PAYMENT DROPDOWN
+========================= */
+
+function renderDropdown() {
+
+  const select = $('payment_method');
+
+  if (!select) return;
+
+  select.innerHTML = `
+    <option value="upi">
+      UPI Payment
+    </option>
+
+    <option value="qr_a">
+      QR Payment A
+    </option>
+
+    <option value="qr_b">
+      QR Payment B
+    </option>
+
+    <option value="qr_c">
+      QR Payment C
+    </option>
+
+    <option value="bank">
+      Bank Transfer
+    </option>
+  `;
+}
+
+
+/* =========================
+   SELECT METHOD
+========================= */
+
+function selectMethod(method) {
+
+  const select = $('payment_method');
+
+  const amount = $('amount');
+
+  if (!select || !amount) return;
+
+  select.value = method;
+
+  let min = Number(cfg[method + '_min']);
+
+  let max = Number(cfg[method + '_max']);
+
+  if (!Number.isFinite(min) || min <= 0) {
+    min = 1;
+  }
+
+  if (!Number.isFinite(max) || max <= 0) {
+    max = 100000000;
+  }
+
+  amount.min = min;
+
+  amount.max = max;
+
+  amount.placeholder =
+    `₹${money(min)} - ₹${money(max)}`;
+}
+
+
+/* =========================
+   CONTACT
+========================= */
+
+function renderContacts() {
+
+  const contacts = $('contacts');
+
+  if (!contacts) return;
+
+  let html = '';
+
+  if (cfg.whatsapp) {
+
+    html += `
+      <a
+        class="btn"
+        href="${esc(cfg.whatsapp)}"
+        target="_blank"
+        rel="noopener"
+      >
+        WhatsApp
+      </a>
+    `;
+  }
+
+  if (cfg.telegram) {
+
+    html += `
+      <a
+        class="btn"
+        href="${esc(cfg.telegram)}"
+        target="_blank"
+        rel="noopener"
+      >
+        Telegram
+      </a>
+    `;
+  }
+
+  if (!html) {
+
+    html =
+      '<p style="color:#777">Support contacts are not configured yet.</p>';
+  }
+
+  contacts.innerHTML = html;
+}
+
+
+/* =========================
+   LOAD PUBLIC SETTINGS
+========================= */
+
+async function loadPublicSettings() {
+
+  const methodsBox = $('methods');
+
+  try {
+
+    const response = await fetch(
+      '/api/public?nocache=' + Date.now(),
+      {
+        method: 'GET',
+        cache: 'no-store'
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || 'Unable to load payment settings.'
+      );
+    }
+
+    cfg = data.settings || {};
+
+    renderDropdown();
+
+    renderPaymentMethods();
+
+    renderContacts();
+
+    selectMethod('upi');
+
+  } catch (error) {
+
+    console.error(
+      'Payment settings error:',
+      error
+    );
+
+    if (methodsBox) {
+
+      methodsBox.innerHTML = `
+        <div class="error">
+          Payment methods could not be loaded.
+          <br>
+          Please refresh the page.
+        </div>
+      `;
+    }
+
+    renderDropdown();
+
+    selectMethod('upi');
+  }
+}
+
+
+/* =========================
+   SUBMIT PAYMENT
+========================= */
+
+async function submitPayment(event) {
+
+  event.preventDefault();
+
+  const form = event.target;
+
+  const result = $('result');
+
+  const button =
+    form.querySelector('button[type="submit"]');
+
+  if (result) {
+    result.innerHTML = '';
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Submitting...';
+  }
+
+  try {
+
+    const formData = new FormData(form);
+
+    const response = await fetch(
+      '/api/payment',
+      {
+        method: 'POST',
+        body: formData
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || 'Payment submission failed.'
+      );
+    }
+
+    if (result) {
+
+      result.innerHTML = `
+        <div class="success">
+
+          <b>Payment Submitted Successfully</b>
+
+          <br><br>
+
+          Reference Code:
+
+          <strong>
+            ${esc(data.code)}
+          </strong>
+
+          <br><br>
+
+          Status:
+          <strong>Pending</strong>
+
+          <br><br>
+
+          Please save your reference code.
+
+        </div>
+      `;
+    }
+
+    form.reset();
+
+    selectMethod('upi');
+
+  } catch (error) {
+
+    if (result) {
+
+      result.innerHTML = `
+        <div class="error">
+          ${esc(error.message)}
+        </div>
+      `;
+    }
+
+  } finally {
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.textContent =
+        'Submit Payment →';
+    }
+  }
+}
+
+
+/* =========================
+   CHECK STATUS
+========================= */
+
+async function checkStatus() {
+
+  const input = $('codeSearch');
+
+  const result = $('statusResult');
+
+  if (!input || !result) return;
+
+  const code =
+    input.value.trim().toUpperCase();
+
+  if (!code) {
+
+    result.innerHTML = `
+      <div class="error">
+        Please enter your reference code.
+      </div>
+    `;
+
+    return;
+  }
+
+  result.innerHTML = 'Checking...';
+
+  try {
+
+    const response = await fetch(
+      '/api/status/' +
+      encodeURIComponent(code) +
+      '?nocache=' +
+      Date.now(),
+      {
+        cache: 'no-store'
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        'Transaction not found.'
+      );
+    }
+
+    const methodNames = {
+      upi: 'UPI Payment',
+      qr_a: 'QR Payment A',
+      qr_b: 'QR Payment B',
+      qr_c: 'QR Payment C',
+      bank: 'Bank Transfer'
+    };
+
+    result.innerHTML = `
+      <div class="status">
+
+        <h3>
+          ${esc(data.code)}
+        </h3>
+
+        <span class="pill ${esc(data.status)}">
+          ${esc(data.status)}
+        </span>
+
+        <p>
+          <b>Payment Method:</b>
+          ${esc(
+            methodNames[data.payment_method]
+            || data.payment_method
+            || '-'
+          )}
+        </p>
+
+        <p>
+          <b>Amount:</b>
+          ₹${money(data.amount)}
+        </p>
+
+        <p>
+          <b>Submitted:</b>
+          ${esc(data.created_at_ist || '')}
+        </p>
+
+        <p>
+          <b>Last Updated:</b>
+          ${esc(data.updated_at_ist || '')}
+        </p>
+
+        ${
+          data.status === 'rejected' &&
+          data.rejection_reason
+            ? `
+              <p>
+                <b>Rejection Reason:</b>
+                ${esc(data.rejection_reason)}
+              </p>
+            `
+            : ''
+        }
+
+      </div>
+    `;
+
+  } catch (error) {
+
+    result.innerHTML = `
+      <div class="error">
+        ${esc(error.message)}
+      </div>
+    `;
+  }
+}
+
+
+/* =========================
+   INITIALIZE
+========================= */
+
+document.addEventListener(
+  'DOMContentLoaded',
+  () => {
+
+    const form =
+      $('paymentForm');
+
+    if (form) {
+
+      form.addEventListener(
+        'submit',
+        submitPayment
+      );
+    }
+
+    const select =
+      $('payment_method');
+
+    if (select) {
+
+      select.addEventListener(
+        'change',
+        () => {
+          selectMethod(select.value);
+        }
+      );
+    }
+
+    loadPublicSettings();
+
+  }
+);
