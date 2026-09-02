@@ -1,0 +1,14 @@
+{
+  "name": "redsewhite-payment-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RedseWhite manual payment verification portal",
+  "scripts": {"start": "node server.js"},
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "multer": "^2.0.2"
+  }
+}
