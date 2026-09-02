@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RedseWhite — Payment Portal</title>
+<meta name="description" content="RedseWhite payment submission and transaction status portal">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="public-page">
+<header class="topbar"><a class="logo" href="#top"><span>REDSE</span>WHITE</a><nav><a href="#payment">Payment</a><a href="#status">Check Status</a><a href="#contact">Contact</a></nav><a class="admin-btn" href="/admin"><span>⌁</span> Admin Login</a></header>
+<main id="top">
+<section class="hero-shell">
+  <div class="hero-copy"><div class="eyebrow">MANUAL PAYMENT VERIFICATION</div><h1>Fast. Simple.<br><span>Verified by hand.</span></h1><p>Make your payment using the details provided below. After paying, submit your UTR and screenshot. Your transaction will be reviewed manually by the RedseWhite admin.</p><div class="hero-actions"><a href="#payment" class="primary-btn">Make a Payment <span>↓</span></a><a href="#status" class="ghost-btn">Check Status</a></div><div class="trust-row"><span>✓ Manual verification</span><span>✓ Unique reference code</span><span>✓ Status tracking</span></div></div>
+  <div class="hero-visual"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="phone"><div class="phone-top"></div><div class="phone-brand"><span>REDSE</span>WHITE</div><div class="shield">✓</div><div class="phone-title">Secure Payment</div><div class="phone-sub">Manual verification</div><div class="phone-chip">₹ Payment Portal</div></div><div class="coin coin-a">₹</div><div class="coin coin-b">₹</div></div>
+</section>
+<section class="section" id="payment"><div class="section-heading"><div><div class="eyebrow">PAYMENT</div><h2>Make a Payment</h2></div><div class="limits-badge" id="limits">Loading limits…</div></div>
+<div class="payment-grid">
+  <article class="panel payment-info"><div class="panel-title"><span class="icon-box">⌁</span><div><h3>Payment Details</h3><p>Use any of the available methods.</p></div></div><div id="paymentDetails"></div><div class="qr-section" id="qrWrap"></div><div class="instruction" id="instruction"></div></article>
+  <article class="panel submit-panel"><div class="panel-title"><span class="icon-box red">↗</span><div><h3>Submit Your Payment</h3><p>Enter the exact details after completing payment.</p></div></div><form id="paymentForm"><div class="field"><label for="amount">Amount <span>₹</span></label><input id="amount" name="amount" type="number" min="1" required placeholder="Enter amount"></div><div class="field"><label for="utr">UTR / Transaction ID</label><input id="utr" name="utr" required maxlength="100" placeholder="Enter UTR / Transaction ID"></div><div class="field"><label for="screenshot">Payment Screenshot</label><div class="file-input"><input id="screenshot" name="screenshot" type="file" accept="image/png,image/jpeg,image/webp,image/gif" required><span>Choose screenshot</span></div><small>JPG, PNG, WEBP or GIF · Max 5MB</small></div><button class="submit-btn" type="submit">Submit Payment <span>→</span></button></form><div id="result"></div></article>
+</div></section>
+<section class="section status-section" id="status"><div class="center-heading"><div class="eyebrow">TRANSACTION TRACKING</div><h2>Check Payment Status</h2><p>Enter your unique reference code to see the latest status.</p></div><div class="status-card"><div class="status-search"><input id="codeSearch" placeholder="e.g. PAY-AB12CD34" autocomplete="off"><button onclick="checkStatus()">Check Status <span>→</span></button></div><div id="statusResult"></div></div><div class="status-help"><span>Tip</span> Save your unique reference code after submitting your payment.</div></section>
+<section class="contact-section" id="contact"><div><div class="eyebrow">SUPPORT</div><h2>Need Help?</h2><p>Contact RedseWhite through the available support channels.</p></div><div id="contacts" class="contact-buttons"></div></section>
+</main><footer><div class="logo footer-logo"><span>REDSE</span>WHITE</div><div>© 2026 RedseWhite. Payment status is manually verified by the administrator.</div></footer>
+<script src="app.js"></script>
+</body></html>
