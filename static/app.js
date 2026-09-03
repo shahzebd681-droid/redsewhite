@@ -1,111 +1,55 @@
 const API_BASE='https://redsewhite.onrender.com';
-let state={dashboard:null,editingDestinationId:null};
+let state={dashboard:null,editingDestinationId:null,authenticated:false,modalStack:[],poller:null};
 const $=id=>document.getElementById(id);const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const money=v=>Number(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmt=v=>v?new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'short'}).format(new Date(v)):'—';
-async function api(path,opt={}){opt.credentials='include';const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d;}
-let modalOpen=false;let modalScrollY=0;
-function lockModalScroll(){
-  if(modalOpen)return;
-  modalOpen=true;
-  modalScrollY=window.scrollY||window.pageYOffset||0;
-  document.body.style.position='fixed';
-  document.body.style.top=`-${modalScrollY}px`;
-  document.body.style.left='0';
-  document.body.style.right='0';
-  document.body.style.width='100%';
-  document.body.classList.add('modal-open');
-  history.pushState({redwalletModal:true},'',location.href);
-}
-function unlockModalScroll(){
-  document.body.classList.remove('modal-open');
-  document.body.style.position='';
-  document.body.style.top='';
-  document.body.style.left='';
-  document.body.style.right='';
-  document.body.style.width='';
-  window.scrollTo(0,modalScrollY);
-  modalOpen=false;
-}
-function open(id){
+async function api(path,opt={}){opt={...opt,credentials:'include'};const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||`Request failed (${r.status})`);e.status=r.status;throw e;}return d;}
+function syncBodyLock(){document.body.classList.toggle('modal-open',[...document.querySelectorAll('.modal')].some(m=>!m.hidden));}
+function setModalState(id,replace=false){if(id)history[replace?'replaceState':'pushState']({rwModal:id},'',location.href);else history.replaceState(null,'',location.href);}
+function open(id,push=true){const el=$(id);if(!el)return;el.hidden=false;state.modalStack=state.modalStack.filter(x=>x!==id);state.modalStack.push(id);if(push)setModalState(id,false);syncBodyLock();}
+function close(id,fromPop=false){
   const el=$(id);if(!el)return;
-  el.hidden=false;
-  lockModalScroll();
+  const isChild=!['loginModal','dashboardModal','resetModal'].includes(id);
+  const dashboard=$('dashboardModal');
+  if(isChild&&dashboard){
+    el.hidden=true;dashboard.hidden=false;state.modalStack=['dashboardModal'];setModalState('dashboardModal',true);
+  }else{
+    el.hidden=true;state.modalStack=state.modalStack.filter(x=>x!==id);
+    if(!fromPop){const next=state.modalStack[state.modalStack.length-1]||null;if(next&&$(next)){ $(next).hidden=false;setModalState(next,true);}else setModalState(null,true);}
+  }
+  syncBodyLock();
 }
-function close(id,internal=false){
-  const el=$(id);if(el)el.hidden=true;
-  if(internal)return;
-  if(modalOpen)history.back();
-}
-function switchModal(from,to){
-  const a=$(from);if(a)a.hidden=true;
-  const b=$(to);if(b)b.hidden=false;
-  if(!modalOpen)lockModalScroll();
-}
-window.addEventListener('popstate',()=>{
-  if(!modalOpen)return;
-  document.querySelectorAll('.modal').forEach(m=>m.hidden=true);
-  unlockModalScroll();
-});
-document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>close(b.dataset.close)));
-document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)close(m.id)}));
+function switchModal(from,to){const a=$(from),b=$(to);if(a)a.hidden=true;if(b)b.hidden=false;state.modalStack=[to];setModalState(to,true);syncBodyLock();}
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();close(b.dataset.close);}));
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)close(m.id);}));
+window.addEventListener('popstate',()=>{const id=history.state?.rwModal||null;document.querySelectorAll('.modal').forEach(m=>m.hidden=true);if(id&&$(id)){$(id).hidden=false;state.modalStack=[id];}else state.modalStack=[];syncBodyLock();});
 $('adminLogin').onclick=()=>location.href=API_BASE+'/admin';$('customerLogin').onclick=()=>open('loginModal');
 (async()=>{try{const r=await fetch(API_BASE+'/api/public?nocache='+Date.now(),{cache:'no-store'});const d=await r.json();const b=$('supportButtons');if(b){let h='';if(d.settings?.telegram)h+=`<a class="primary-btn" href="${esc(d.settings.telegram)}" target="_blank" rel="noopener">Telegram</a>`;if(d.settings?.whatsapp)h+=`<a class="primary-btn" href="${esc(d.settings.whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>`;b.innerHTML=h||'<span class="muted">Support contacts are not configured yet.</span>'}}catch{}})();
-let loginBusy=false;
-async function login(e){
-  e.preventDefault();
-  if(loginBusy)return;
-  loginBusy=true;
-  const btn=$('loginForm').querySelector('button[type="submit"]');
-  const oldText=btn?btn.innerHTML:'Login <b>→</b>';
-  if(btn){btn.disabled=true;btn.innerHTML='Signing in…';}
-  $('loginError').textContent='';
-  try{
-    const d=await api('/api/customer/login',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        user_id:$('loginUser').value.trim(),
-        password:$('loginPass').value
-      })
-    });
-    if(d.customer?.temporary_password){
-      state.customer=d.customer;
-      switchModal('loginModal','resetModal');
-      return;
-    }
-    await loadDashboard();
-    switchModal('loginModal','dashboardModal');
-  }catch(x){
-    $('loginError').textContent=x.message;
-  }finally{
-    loginBusy=false;
-    if(btn){btn.disabled=false;btn.innerHTML=oldText;}
-  }
-}
-$('loginForm').onsubmit=login;
-$('resetForm').onsubmit=async e=>{e.preventDefault();$('resetError').textContent='';try{await api('/api/customer/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_password:$('oldPass').value,new_password:$('newPass').value,repeat_password:$('repeatPass').value})});switchModal('resetModal','dashboardModal');await loadDashboard();}catch(x){$('resetError').textContent=x.message}};
-async function loadDashboard(){const d=await api('/api/customer/dashboard');state.dashboard=d;renderDashboard();}
+async function login(e){e.preventDefault();$('loginError').textContent='';const btn=e.submitter||$('loginForm').querySelector('button[type="submit"]');if(btn?.disabled)return;if(btn){btn.disabled=true;btn.dataset.originalText=btn.innerHTML;btn.innerHTML='Signing in…';}try{const d=await api('/api/customer/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:$('loginUser').value.trim(),password:$('loginPass').value,remember_me:$('rememberMe')?.checked===true})});state.authenticated=true;if(d.customer?.temporary_password){state.customer=d.customer;switchModal('loginModal','resetModal');return}const loaded=await loadDashboard({silent:false});if(!loaded)throw new Error('Dashboard could not be loaded. Please try again.');switchModal('loginModal','dashboardModal');startPolling();}catch(x){$('loginError').textContent=x.message}finally{if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.originalText||'Login →';}}}
+$('loginForm').onsubmit=login;$('showLoginPassword').onchange=e=>$('loginPass').type=e.target.checked?'text':'password';
+$('resetForm').onsubmit=async e=>{e.preventDefault();$('resetError').textContent='';try{await api('/api/customer/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_password:$('oldPass').value,new_password:$('newPass').value,repeat_password:$('repeatPass').value})});await loadDashboard();switchModal('resetModal','dashboardModal');startPolling()}catch(x){$('resetError').textContent=x.message}};
+async function loadDashboard({silent=false}={}){try{const d=await api('/api/customer/dashboard');state.dashboard=d;state.authenticated=true;renderDashboard();return true;}catch(x){if(!silent)$('dashboardMessage').innerHTML=`<div class="notice">${esc(x.message)} <button type="button" class="ghost-btn tiny" onclick="loadDashboard()">Retry</button></div>`;return false;}}
+function startPolling(){if(state.poller)clearInterval(state.poller);state.poller=setInterval(()=>{if(state.authenticated&&!$('dashboardModal').hidden)loadDashboard({silent:true});},5000);}
 function renderDashboard(){const d=state.dashboard;if(!d)return;$('customerName').textContent=d.customer.client_name;$('balance').textContent='₹'+money(d.balance);$('totalDeposited').textContent='₹'+money(d.total_deposited);$('totalUsed').textContent='₹'+money(d.total_used);$('pendingAmount').textContent='₹'+money(d.pending_amount);renderRates();renderDestinations();renderHistory();renderFundMethods();renderDestOptions();}
 function renderRates(){const r=state.dashboard.rates||{};$('rates').innerHTML=`<div class="rate-card"><span>White INR Fun Coin</span><b>₹${money(r.inr)}</b></div><div class="rate-card"><span>White USDT Fun Coin (TRC20)</span><b>₹${money(r.usdt_trc20)}</b></div>`;updateCalc()}
 function renderDestinations(){const list=state.dashboard.destinations||[];$('destinations').innerHTML=list.length?list.map(d=>`<article class="dest-card"><div class="dest-info"><b>${esc(d.label||d.destination_type)}</b>${d.destination_type==='inr'?`<small><strong>Account Holder Name:</strong> ${esc(d.account_holder_name||'—')}</small><small><strong>Bank Account Number:</strong> ${esc(d.account_number||'—')}</small><small><strong>IFSC Code:</strong> ${esc(d.ifsc||'—')}</small>`:`<small><strong>USDT TRC20 Address:</strong> ${esc(d.wallet_address||'—')}</small>`}</div><div class="mini-actions"><button class="ghost-btn small" onclick="editDestination(${d.id})">Edit</button><button class="danger-btn small" onclick="deleteDestination(${d.id})">Delete</button></div></article>`).join(''):'<div class="empty">No saved destinations yet.</div>';}
 
-function renderHistory(){const list=state.dashboard.transactions||[];$('history').innerHTML=list.length?list.map(t=>{const label=t.transaction_type==='deposit'?'Add Fund':'Convert Coin';return `<article class="history-row"><div><b>${esc(t.transaction_id)}</b><small>${label} · ${fmt(t.created_at)}</small></div><div class="history-right"><b>₹${money(t.amount)}</b><span class="status ${esc(t.status)}">${esc(t.status)}</span>${t.status==='pending'?`<button class="ghost-btn tiny" onclick="cancelTx(${t.id})">Cancel</button>`:''}${t.rejection_reason?`<small class="reject">${esc(t.rejection_reason)}</small>`:''}</div></article>`}).join(''):'<div class="empty">No transactions yet.</div>';}
-function renderFundMethods(){const methods=state.dashboard.payment_methods||[];$('fundMethod').innerHTML=methods.map(m=>`<option value="${esc(m.method_code)}" data-version="${esc(m.current_version_id||'')}">${esc(m.method_name)}</option>`).join('');$('fundMethods').innerHTML=methods.map(m=>{const v=m.version||{};return `<article class="fund-method"><b>${esc(m.method_name)}</b>${v.upi_id?`<p><strong>UPI ID:</strong> ${esc(v.upi_id)}</p>`:''}${v.qr_image_url?`<img src="${esc(v.qr_image_url)}" alt="QR">`:''}${v.bank_name?`<div class="payment-bank-details"><p><strong>Bank Name:</strong> ${esc(v.bank_name)}</p><p><strong>Bank Account Number:</strong> ${esc(v.bank_account||'—')}</p><p><strong>IFSC Code:</strong> ${esc(v.bank_ifsc||'—')}</p></div>`:''}<p><strong>Account Holder Name:</strong> ${esc(v.holder_name||'—')}</p><p class="limits">₹${money(v.minimum_amount)} – ₹${money(v.maximum_amount)}</p><p>${esc(v.payment_instructions||'')}</p><button type="button" class="ghost-btn small" onclick="chooseFund('${esc(m.method_code)}')">Use This Method</button></article>`}).join('');}
+function renderHistory(){const list=state.dashboard.transactions||[];const methods=state.dashboard.payment_methods||[];$('history').innerHTML=list.length?list.map(t=>{const isDep=t.transaction_type==='deposit';const label=isDep?'Add Fund':'Convert Coin';const method=t.payment_method_name||methods.find(m=>m.method_code===t.payment_method)?.method_name||t.payment_method||'—';const coin=t.coin_name||({'white_usdt':'White USDT Fun Coin (TRC20)','white_inr':'White INR Fun Coin','usdt_trc20':'White USDT Fun Coin (TRC20)','inr':'White INR Fun Coin'}[String(t.coin_type||'').toLowerCase()]||t.coin_type||'—');const qty=t.coin_quantity!=null?Number(t.coin_quantity).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:6}):'';const rate=t.applied_rate!=null?money(t.applied_rate):'';const destination=t.destination_name||(t.destination_type==='usdt_trc20'?'USDT TRC20':t.destination_type==='inr'?'INR Bank Account':'');const snap=t.destination_snapshot||{};return `<article class="history-row history-detailed"><div class="history-main"><b>${esc(t.transaction_id)}</b><small>${label} · ${fmt(t.created_at)}</small>${isDep?`<small><strong>Payment Method:</strong> ${esc(method)}</small>${t.utr?`<small><strong>UTR:</strong> ${esc(t.utr)}</small>`:''}`:`<small><strong>Coin:</strong> ${esc(coin)}</small><small><strong>Rate:</strong> ₹${rate} per coin</small><small><strong>Quantity:</strong> ${esc(qty)}</small>${destination?`<small><strong>Destination:</strong> ${esc(destination)}</small>`:''}${snap.account_holder_name?`<small><strong>Account Holder:</strong> ${esc(snap.account_holder_name)}</small>`:''}${snap.account_number?`<small><strong>Bank Account:</strong> ${esc(snap.account_number)}</small>`:''}${snap.ifsc?`<small><strong>IFSC Code:</strong> ${esc(snap.ifsc)}</small>`:''}${snap.wallet_address?`<small><strong>TRC20 Address:</strong> ${esc(snap.wallet_address)}</small>`:''}`}</div><div class="history-right"><b>₹${money(t.amount)}</b><span class="status ${esc(t.status)}">${esc(t.status)}</span>${t.status==='pending'?`<button type="button" class="ghost-btn tiny" onclick="cancelTx(${t.id})">Cancel</button>`:''}${t.rejection_reason?`<small class="reject">${esc(t.rejection_reason)}</small>`:''}</div></article>`}).join(''):'<div class="empty">No transactions yet.</div>';}
+function renderFundMethods(){const methods=state.dashboard.payment_methods||[];$('fundMethod').innerHTML=methods.map(m=>`<option value="${esc(m.method_code)}" data-version="${esc(m.current_version_id||'')}">${esc(m.method_name)}</option>`).join('');$('fundMethods').innerHTML=methods.map(m=>{const v=m.version||{};return `<article class="fund-method"><b>${esc(m.method_name)}</b>${v.upi_id?`<p><strong>UPI ID:</strong> ${esc(v.upi_id)}</p>`:''}${v.qr_image_url?`<img src="${esc(v.qr_image_url)}" alt="QR">`:''}${v.bank_name?`<p><strong>Bank:</strong> ${esc(v.bank_name)} · ${esc(v.bank_account)} · ${esc(v.bank_ifsc)}</p>`:''}<p><strong>Holder:</strong> ${esc(v.holder_name||'—')}</p><p class="limits">₹${money(v.minimum_amount)} – ₹${money(v.maximum_amount)}</p><p>${esc(v.payment_instructions||'')}</p><button type="button" class="ghost-btn small" onclick="chooseFund('${esc(m.method_code)}')">Use This Method</button></article>`}).join('');}
 function chooseFund(code){$('fundMethod').value=code;const m=(state.dashboard.payment_methods||[]).find(x=>x.method_code===code);if(m){$('fundAmount').min=m.minimum_amount||1;$('fundAmount').max=m.maximum_amount||''}$('fundMethod').scrollIntoView({behavior:'smooth',block:'center'});}
 function renderDestOptions(){const coin=$('coinType').value;const list=(state.dashboard.destinations||[]).filter(d=>d.destination_type===coin);$('destinationSelect').innerHTML=list.map(d=>`<option value="${d.id}">${esc(d.label||d.destination_type)} — ${coin==='inr'?`Account Number: ${esc(d.account_number||'—')} | IFSC Code: ${esc(d.ifsc||'—')}`:`TRC20: ${esc(d.wallet_address||'—')}`}</option>`).join('');if(!list.length){$('destinationSelect').innerHTML='<option value="">No matching saved destination</option>';renderDestinationPreview(null);return;}renderDestinationPreview(list[0]);}
 function renderDestinationPreview(dest){const box=$('destinationPreview');if(!box)return;if(!dest){box.innerHTML='';box.hidden=true;return;}box.hidden=false;box.innerHTML=dest.destination_type==='inr'?`<div class="destination-preview-title">Selected Bank Destination</div><div><span>Account Holder Name</span><b>${esc(dest.account_holder_name||'—')}</b></div><div><span>Bank Account Number</span><b>${esc(dest.account_number||'—')}</b></div><div><span>IFSC Code</span><b>${esc(dest.ifsc||'—')}</b></div>`:`<div class="destination-preview-title">Selected USDT TRC20 Destination</div><div><span>Wallet Address</span><b>${esc(dest.wallet_address||'—')}</b></div>`;}
 
 function updateCalc(){const coin=$('coinType').value,r=Number(state.dashboard?.rates?.[coin]||0),amount=Number($('coinAmount').value||0);const label=coin==='inr'?'White INR Fun Coin':'White USDT Fun Coin';$('rateLine').textContent=`Live rate: 1 ${label} = ₹${money(r)}`;if($('coinAmount')){$('coinAmount').max=Number(state.dashboard?.balance||0);$('coinAmount').placeholder=`Up to ₹${money(state.dashboard?.balance||0)}`;}if(amount>0&&r>0){const qty=amount/r;$('conversionCalc').innerHTML=`<div><span>Amount to Convert</span> <b>₹${money(amount)}</b></div><div><span>Conversion Rate</span> <b>₹${money(r)} per coin</b></div><div class="receive-line"><span>You will receive</span> <b>${qty.toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:6})} ${label}</b></div>`;}else $('conversionCalc').innerHTML='Enter the INR amount you want to convert.';renderDestOptions();}
 
-$('coinType').onchange=updateCalc;$('coinAmount').oninput=updateCalc;$('destinationSelect').onchange=()=>{const id=Number($('destinationSelect').value);const d=(state.dashboard.destinations||[]).find(x=>x.id===id);renderDestinationPreview(d||null)};$('addFundBtn').onclick=()=>open('fundModal');$('convertBtn').onclick=()=>{renderDestOptions();updateCalc();open('convertModal')};$('refreshDashboard').onclick=loadDashboard;$('addDestinationBtn').onclick=()=>{state.editingDestinationId=null;$('destinationTitle').textContent='Add Destination';$('destinationForm').reset();toggleDestFields();open('destinationModal')};$('destinationType').onchange=toggleDestFields;function toggleDestFields(){const t=$('destinationType').value;$('inrFields').hidden=t!=='inr';$('usdtFields').hidden=t!=='usdt_trc20'}
-$('fundForm').onsubmit=async e=>{e.preventDefault();$('fundError').textContent='';const m=state.dashboard.payment_methods.find(x=>x.method_code===$('fundMethod').value);const fd=new FormData();fd.append('payment_method',$('fundMethod').value);fd.append('payment_method_version_id',m?.current_version_id||'');fd.append('amount',$('fundAmount').value);fd.append('utr',$('fundUtr').value.trim());fd.append('screenshot',$('fundScreenshot').files[0]);try{const d=await api('/api/customer/deposits',{method:'POST',body:fd});close('fundModal');$('fundForm').reset();await loadDashboard();showDash(`Payment submitted: ${d.transaction.transaction_id}`)}catch(x){$('fundError').textContent=x.message}};
-$('convertForm').onsubmit=async e=>{e.preventDefault();$('convertError').textContent='';try{const d=await api('/api/customer/conversions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coin_type:$('coinType').value,amount:$('coinAmount').value,destination_id:$('destinationSelect').value})});close('convertModal');$('convertForm').reset();await loadDashboard();showDash(`Conversion submitted: ${d.transaction.transaction_id}`)}catch(x){$('convertError').textContent=x.message}};
+$('coinType').onchange=()=>{renderDestOptions();updateCalc()};$('coinAmount').oninput=updateCalc;$('destinationSelect').onchange=()=>{const id=Number($('destinationSelect').value);const d=(state.dashboard.destinations||[]).find(x=>x.id===id);renderDestinationPreview(d||null)};$('addFundBtn').onclick=()=>open('fundModal');$('convertBtn').onclick=()=>{renderDestOptions();updateCalc();open('convertModal')};$('refreshDashboard').onclick=async()=>{const ok=await loadDashboard({silent:false});if(ok)showDash('Dashboard refreshed.')};$('refreshHistory').onclick=async()=>{const ok=await loadDashboard({silent:false});if(ok)showDash('Transaction status refreshed.')};$('addDestinationBtn').onclick=()=>{state.editingDestinationId=null;$('destinationTitle').textContent='Add Destination';$('destinationForm').reset();toggleDestFields();open('destinationModal')};$('destinationType').onchange=toggleDestFields;function toggleDestFields(){const t=$('destinationType').value;$('inrFields').hidden=t!=='inr';$('usdtFields').hidden=t!=='usdt_trc20'}
+$('fundForm').onsubmit=async e=>{e.preventDefault();$('fundError').textContent='';const m=state.dashboard.payment_methods.find(x=>x.method_code===$('fundMethod').value);const fd=new FormData();fd.append('payment_method',$('fundMethod').value);fd.append('payment_method_version_id',m?.current_version_id||'');fd.append('amount',$('fundAmount').value);fd.append('utr',$('fundUtr').value.trim());fd.append('screenshot',$('fundScreenshot').files[0]);try{const d=await api('/api/customer/deposits',{method:'POST',body:fd});close('fundModal');$('fundForm').reset();await loadDashboard({silent:false});showDash(`Payment submitted: ${d.transaction.transaction_id}`)}catch(x){$('fundError').textContent=x.message}};
+$('convertForm').onsubmit=async e=>{e.preventDefault();$('convertError').textContent='';try{const d=await api('/api/customer/conversions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coin_type:$('coinType').value,amount:$('coinAmount').value,destination_id:$('destinationSelect').value})});close('convertModal');$('convertForm').reset();await loadDashboard({silent:false});showDash(`Conversion submitted: ${d.transaction.transaction_id}`)}catch(x){$('convertError').textContent=x.message}};
 $('destinationForm').onsubmit=async e=>{e.preventDefault();$('destinationError').textContent='';const body={destination_type:$('destinationType').value,label:$('destinationLabel').value,account_holder_name:$('destHolder').value,account_number:$('destAccount').value,ifsc:$('destIfsc').value,wallet_address:$('destWallet').value};try{if(state.editingDestinationId)await api('/api/customer/destinations/'+state.editingDestinationId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});else await api('/api/customer/destinations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});close('destinationModal');await loadDashboard()}catch(x){$('destinationError').textContent=x.message}};
 window.editDestination=async id=>{const d=(state.dashboard.destinations||[]).find(x=>x.id===id);if(!d)return;state.editingDestinationId=id;$('destinationTitle').textContent='Edit Destination';$('destinationType').value=d.destination_type;$('destinationLabel').value=d.label||'';$('destHolder').value=d.account_holder_name||'';$('destAccount').value=d.account_number||'';$('destIfsc').value=d.ifsc||'';$('destWallet').value=d.wallet_address||'';toggleDestFields();open('destinationModal')};
 window.deleteDestination=async id=>{if(!confirm('Delete this saved destination?'))return;try{await api('/api/customer/destinations/'+id,{method:'DELETE'});await loadDashboard()}catch(x){alert(x.message)}};
 window.cancelTx=async id=>{if(!confirm('Cancel this pending transaction?'))return;try{await api('/api/customer/transactions/'+id+'/cancel',{method:'POST'});await loadDashboard()}catch(x){alert(x.message)}};
 $('changePasswordBtn').onclick=()=>open('passwordModal');$('passwordForm').onsubmit=async e=>{e.preventDefault();$('cpError').textContent='';try{await api('/api/customer/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_password:$('cpOld').value,new_password:$('cpNew').value,repeat_password:$('cpRepeat').value})});close('passwordModal');$('passwordForm').reset();showDash('Password updated successfully.')}catch(x){$('cpError').textContent=x.message}};
-$('logoutBtn').onclick=async()=>{try{await api('/api/customer/logout',{method:'POST'})}catch{}close('dashboardModal');showDash('You have been logged out.');};
+$('logoutBtn').onclick=async()=>{try{await api('/api/customer/logout',{method:'POST'})}catch{}state.authenticated=false;if(state.poller)clearInterval(state.poller);state.poller=null;close('dashboardModal');showDash('You have been logged out.');};
 function showDash(msg){$('dashboardMessage').innerHTML=`<div class="notice">${esc(msg)}</div>`;setTimeout(()=>$('dashboardMessage').innerHTML='',5000)}
-(async()=>{try{const r=await fetch(API_BASE+'/api/customer/me',{credentials:'include'});const d=await r.json();if(r.ok&&d.authenticated){if(d.customer.temporary_password)open('resetModal');else{await loadDashboard();open('dashboardModal')}}}catch{}})();
+(async()=>{try{const r=await fetch(API_BASE+'/api/customer/me',{credentials:'include'});const d=await r.json();if(r.ok&&d.authenticated){state.authenticated=true;if(d.customer.temporary_password)open('resetModal');else{await loadDashboard();open('dashboardModal');startPolling()}}}catch{}})();
