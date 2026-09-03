@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <title>Redwallet — Customer Access</title>
+  <link rel="stylesheet" href="style.css?v=10">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="#top"><span>RED</span>WALLET</a>
+  <a class="admin-link" id="adminLink" href="#">Admin Login</a>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow">REDWALLET</div>
+      <h1>Secure.<br><span>Simple.</span> Reliable.</h1>
+      <p>Access your Redwallet account securely. Your User ID and dashboard access are provided by our support team.</p>
+      <button class="primary-btn" id="openLogin">Customer Login <span>→</span></button>
+    </div>
+    <div class="hero-card">
+      <div class="wallet-icon">₹</div>
+      <strong>Redwallet</strong>
+      <small>Secure customer access</small>
+    </div>
+  </section>
+
+  <section class="section support">
+    <div class="eyebrow">ACCOUNT ACCESS</div>
+    <h2>Ready to Get Started with Redwallet?</h2>
+    <p>To access Redwallet and get your <b>User ID &amp; Dashboard Access</b>, please contact our support team via Telegram or WhatsApp.</p>
+    <p>Our support team is available <b>24/7</b> to assist you with account setup and access.</p>
+    <div id="contacts" class="contacts"></div>
+  </section>
+
+  <section class="section terms">
+    <div class="eyebrow">TERMS &amp; CONDITIONS</div>
+    <h2>Payment Details Notice</h2>
+    <p>Payment details displayed on the website are valid while active. After any change or removal, previous details remain valid for 30 minutes. Payments made to old details after this period will not be confirmed.</p>
+  </section>
+</main>
+
+<div class="modal hidden" id="loginModal" aria-hidden="true">
+  <div class="modal-card">
+    <button class="close" id="closeLogin" aria-label="Close">×</button>
+    <div class="eyebrow">CUSTOMER ACCESS</div>
+    <h2>Customer Login</h2>
+    <p class="muted">Use the User ID and temporary password provided by Redwallet support.</p>
+    <form id="loginForm">
+      <label>User ID
+        <input id="userId" autocomplete="username" required>
+      </label>
+      <label>Password
+        <input id="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="primary-btn full" type="submit">Login <span>→</span></button>
+    </form>
+    <div id="loginResult"></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="resetModal" aria-hidden="true">
+  <div class="modal-card">
+    <div class="eyebrow">FIRST LOGIN</div>
+    <h2>Reset Your Password</h2>
+    <p class="muted">Your temporary password must be replaced before dashboard access.</p>
+    <form id="resetForm">
+      <label>Old Password
+        <input id="oldPassword" type="password" autocomplete="current-password" required>
+      </label>
+      <label>New Password
+        <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <label>Repeat New Password
+        <input id="repeatPassword" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <button class="primary-btn full" type="submit">Set New Password <span>→</span></button>
+    </form>
+    <div id="resetResult"></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="dashboardModal" aria-hidden="true">
+  <div class="modal-card dashboard-card">
+    <button class="close" id="closeDashboard" aria-label="Close">×</button>
+    <div class="eyebrow">CUSTOMER DASHBOARD</div>
+    <h2 id="welcomeName">Welcome</h2>
+    <p class="muted">Your secure customer access is active.</p>
+    <div class="dashboard-note">
+      <strong>Dashboard Access Ready</strong>
+      <p>Your customer account is authenticated. Wallet, Add Fund and Convert Coin modules will appear here as they are enabled.</p>
+    </div>
+    <button class="secondary-btn full" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<footer><b><span>RED</span>WALLET</b> · Secure customer access</footer>
+<script src="app.js?v=10"></script>
+</body>
+</html>
