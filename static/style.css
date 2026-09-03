@@ -110,3 +110,180 @@ body {
     width: 100%;
   }
 }
+/* =========================================================
+   REDWALLET - ADD FUND MOBILE RESPONSIVE FIX
+   ========================================================= */
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-width: 0;
+}
+
+/* Add Fund modal */
+#fundModal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 10px;
+}
+
+/* Modal container */
+#fundModal .modal-card {
+  width: min(760px, 100%);
+  max-width: 100%;
+  max-height: calc(100dvh - 20px);
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Payment methods - one card per row */
+#fundModal .fund-methods {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 0;
+  overflow: visible;
+}
+
+/* Individual payment card */
+#fundModal .fund-method {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* QR images */
+#fundModal .fund-method img {
+  display: block;
+  width: min(240px, 100%);
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  margin: 10px auto;
+}
+
+/* Prevent long UPI / bank details from breaking layout */
+#fundModal .fund-method p,
+#fundModal .fund-method b {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Form elements */
+#fundModal form,
+#fundModal label,
+#fundModal input,
+#fundModal select,
+#fundModal button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#fundModal input,
+#fundModal select {
+  min-width: 0;
+}
+
+/* Close button */
+#fundModal .modal-close {
+  position: sticky;
+  float: right;
+  top: 0;
+  right: 0;
+  z-index: 5;
+  margin-left: 10px;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+  #fundModal {
+    align-items: flex-start;
+    padding: 8px;
+  }
+
+  #fundModal .modal-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  #fundModal .modal-card h2 {
+    font-size: 29px;
+    margin-top: 4px;
+  }
+
+  #fundModal .muted {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* Force payment cards vertically */
+  #fundModal .fund-methods {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  #fundModal .fund-method {
+    padding: 14px;
+    border-radius: 13px;
+  }
+
+  /* QR stays inside phone screen */
+  #fundModal .fund-method img {
+    width: min(220px, 100%);
+    max-height: 220px;
+  }
+
+  #fundModal .notice,
+  #fundModal .form-error {
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* =========================================================
+   SMALL ANDROID PHONES
+   ========================================================= */
+
+@media (max-width: 380px) {
+
+  #fundModal {
+    padding: 5px;
+  }
+
+  #fundModal .modal-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  #fundModal .fund-method {
+    padding: 12px;
+  }
+
+  #fundModal .fund-method img {
+    width: min(190px, 100%);
+  }
+}
