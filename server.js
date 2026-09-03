@@ -67,12 +67,34 @@ app.use((req, res, next) => {
     req.path === '/api/public' ||
     req.path === '/api/payment' ||
     req.path.startsWith('/api/status/');
+
+  const customerApi =
+    req.path.startsWith('/api/customer/');
+
+  const customerOrigin = 'https://redsewhite-customer.onrender.com';
+
   if (publicApi) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
-  if (req.method === 'OPTIONS' && publicApi) return res.sendStatus(204);
+
+  if (customerApi) {
+    const origin = req.headers.origin;
+
+    if (origin === customerOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', customerOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Vary', 'Origin');
+    }
+  }
+
+  if (req.method === 'OPTIONS' && (publicApi || customerApi)) {
+    return res.sendStatus(204);
+  }
+
   next();
 });
 
@@ -145,8 +167,7 @@ function cookieOptions() {
 }
 
 function customerCookieOptions() {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  return `Path=/; HttpOnly; SameSite=Lax${secure}`;
+  return 'Path=/; HttpOnly; SameSite=None; Secure';
 }
 
 function ist(iso) {
